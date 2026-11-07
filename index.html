@@ -1,0 +1,537 @@
+<title>RastOase App-Prototyp</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: Erklärspalte mit Lageplan links, Smartphone rechts; schmal untereinander. Farben nach Autobahn-Beschilderung (Blau) + LED-Bernstein; Spurfarben aus dem Lageplan */
+:root{
+  --bg:#eef2f7; --panel:#ffffff; --ink:#122033; --muted:#55657a; --line:#d5dde8;
+  --sign:#1b4f9c; --sign-ink:#ffffff; --led:#f2a516; --ok:#1f8a4c; --warn:#c2410c;
+  --phone:#0e1622; --screen:#f7f9fc; --card:#ffffff; --chip:#e6edf7;
+  --laneT:#2f6fd6; --laneP:#1f9d63; --laneF:#e8840f;
+  --f-display:"Barlow Semi Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0b121c; --panel:#121c29; --ink:#e6edf6; --muted:#9aabbf; --line:#243346;
+  --sign:#3a74c9; --sign-ink:#ffffff; --led:#f5b13a; --ok:#3fb96f; --warn:#f07a3c;
+  --phone:#000000; --screen:#0f1825; --card:#16212f; --chip:#1d2b3d;
+  --laneT:#5b8ff0; --laneP:#3cc283; --laneF:#f5a03c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b121c; --panel:#121c29; --ink:#e6edf6; --muted:#9aabbf; --line:#243346;
+  --sign:#3a74c9; --sign-ink:#ffffff; --led:#f5b13a; --ok:#3fb96f; --warn:#f07a3c;
+  --phone:#000000; --screen:#0f1825; --card:#16212f; --chip:#1d2b3d;
+  --laneT:#5b8ff0; --laneP:#3cc283; --laneF:#f5a03c; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;margin:0;padding:24px 16px 40px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:32px;align-items:start}
+@media (max-width:900px){.wrap{grid-template-columns:minmax(0,1fr)}.phone-col{order:-1}}
+header.top{max-width:1180px;margin:0 auto 20px;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:end;justify-content:space-between}
+h1{font-family:var(--f-display);font-weight:700;font-size:2rem;line-height:1.1;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:4px 0 0;max-width:62ch}
+.tag{font-family:var(--f-mono);font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.personas{display:flex;flex-wrap:wrap;gap:8px;max-width:640px}
+.personas button{font:600 .88rem var(--f-body);border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 12px;border-radius:999px;cursor:pointer}
+.personas button[aria-pressed="true"]{background:var(--sign);color:var(--sign-ink);border-color:var(--sign)}
+button:focus-visible,.opt:focus-visible{outline:3px solid var(--led);outline-offset:2px}
+.col{display:grid;gap:20px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;min-width:0}
+.panel h2{font-family:var(--f-display);font-size:1.35rem;margin:0 0 4px}
+.panel h3{font-family:var(--f-display);font-size:1.05rem;margin:18px 0 6px}
+.panel p{margin:0 0 8px;max-width:65ch}
+.panel ul{margin:0;padding-left:18px}
+.kv{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 14px;font-size:.92rem}
+.kv dt{color:var(--muted)} .kv dd{margin:0}
+.steps{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0;padding:0;list-style:none}
+.steps button{font:500 .82rem var(--f-mono);background:var(--chip);color:var(--ink);border:1px solid transparent;border-radius:6px;padding:5px 9px;cursor:pointer}
+.steps button[aria-current="step"]{border-color:var(--sign);background:var(--panel);color:var(--sign)}
+.data{font-family:var(--f-mono);font-size:.8rem;background:var(--chip);border-radius:6px;padding:10px 12px;overflow-x:auto;white-space:pre;margin-top:6px}
+/* Lageplan */
+.lp{position:relative;width:100%;aspect-ratio:1600/775;overflow:hidden;border-radius:10px;background:#1a2a1a;max-width:100%}
+.lp img{position:absolute;top:0;left:0;width:100%;height:auto;display:block;user-select:none}
+.lp svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.mk{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;border-radius:999px;font:700 .72rem var(--f-mono);color:#fff;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);width:26px;height:26px}
+.mk.zone{width:34px;height:34px;font-size:.78rem;background:var(--led);color:#111}
+.mk.lane{background:var(--sign)}
+.mk.off{background:#111a;width:22px;height:22px;font-size:.68rem}
+@media (prefers-reduced-motion:no-preference){.mk.zone::after{content:"";position:absolute;inset:-8px;border-radius:999px;border:3px solid var(--led);animation:pulse 1.6s ease-out infinite}@keyframes pulse{from{transform:scale(.6);opacity:1}to{transform:scale(1.4);opacity:0}}}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.82rem;color:var(--muted);margin-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.dot{width:12px;height:12px;border-radius:999px;display:inline-block;border:2px solid var(--panel)}
+.src{font-size:.78rem;color:var(--muted);margin-top:6px}
+/* Phone */
+.phone{background:var(--phone);border-radius:42px;padding:12px;max-width:380px;margin:0 auto;box-shadow:0 20px 50px -20px rgba(10,20,40,.45)}
+.screen{background:var(--screen);border-radius:32px;height:740px;max-height:84vh;overflow:hidden;display:flex;flex-direction:column}
+.status{display:flex;justify-content:space-between;font:500 .75rem var(--f-mono);padding:12px 22px 4px;color:var(--muted)}
+.appbar{background:var(--sign);color:var(--sign-ink);padding:12px 18px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.appbar .brand{font-family:var(--f-display);font-weight:700;font-size:1.25rem;letter-spacing:.01em}
+.appbar .who{font-size:.8rem;opacity:.9;text-align:right}
+.content{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.content .lp{border-radius:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.card h4{margin:0 0 4px;font-family:var(--f-display);font-size:1.1rem}
+.small{font-size:.82rem;color:var(--muted)}
+.big{font-family:var(--f-display);font-weight:700;font-size:2.6rem;line-height:1}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.pill{font:600 .72rem var(--f-mono);padding:3px 8px;border-radius:999px;background:var(--chip);white-space:nowrap}
+.pill.ok{color:var(--ok)}
+.cta{display:block;width:100%;font:700 1.05rem var(--f-display);letter-spacing:.02em;background:var(--sign);color:var(--sign-ink);border:0;border-radius:12px;padding:14px;cursor:pointer;min-height:52px}
+.cta.alt{background:var(--chip);color:var(--ink)}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.opt{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:12px;text-align:left;cursor:pointer;color:var(--ink);font:500 .9rem var(--f-body);min-height:84px;display:flex;flex-direction:column;gap:6px}
+.opt svg{width:26px;height:26px}
+.opt[aria-pressed="true"]{border-color:var(--sign);background:var(--chip)}
+.vms{background:#0a0f16;border-radius:10px;padding:14px;font-family:var(--f-mono);color:var(--led);display:grid;gap:4px;border:3px solid #2a3442}
+.vms .l1{font-size:1.5rem;font-weight:500;letter-spacing:.08em}
+.vms .l2{font-size:.85rem;letter-spacing:.06em}
+.lanes{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.lane{border-radius:10px;padding:10px 6px;text-align:center;font:700 .82rem var(--f-display);letter-spacing:.03em;color:#fff;opacity:.35;border:3px solid transparent}
+.lane.on{opacity:1;border-color:var(--led)}
+.lane small{display:block;font:500 .66rem var(--f-mono);opacity:.9}
+.ln-t{background:var(--laneT)} .ln-p{background:var(--laneP)} .ln-f{background:var(--laneF)}
+.list{display:grid;gap:8px}
+.li{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.li:last-child{border-bottom:0}
+.num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;background:var(--ink);color:var(--panel);font:700 .7rem var(--f-mono);flex:none}
+.tabbar{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);background:var(--card);padding:6px 4px 14px}
+.tabbar button{background:none;border:0;color:var(--muted);font:600 .7rem var(--f-body);display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;cursor:pointer}
+.tabbar button[aria-current="page"]{color:var(--sign)}
+.tabbar svg{width:22px;height:22px}
+.stars{display:flex;gap:6px}
+.stars button{font-size:1.6rem;background:none;border:0;cursor:pointer;color:var(--muted);padding:0 2px}
+.stars button.on{color:var(--led)}
+.ops{max-width:1180px;margin:32px auto 0}
+.ops h2{font-family:var(--f-display);font-size:1.6rem;margin:2px 0 4px}
+.ops-head{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:end;justify-content:space-between;margin-bottom:14px}
+.ops-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.k-grid{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+@media (max-width:900px){.ops-grid,.k-grid{grid-template-columns:minmax(0,1fr)}}
+.h3top{margin-top:0!important}
+.small-cta{width:auto;min-height:44px;padding:10px 16px;font-size:.95rem;display:inline-block}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.bars{display:grid;gap:10px}
+.bar .row{font-size:.86rem}
+.track{height:10px;border-radius:999px;background:var(--chip);overflow:hidden;margin-top:4px}
+.fill{height:100%;border-radius:999px;background:var(--ok);transition:width .6s ease}
+.fill.mid{background:var(--led)} .fill.hi{background:var(--warn)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:500 .78rem var(--f-mono);padding:6px 8px;border-radius:8px;background:var(--chip);display:grid;gap:2px;min-width:92px}
+.chip b{font-family:var(--f-body);font-size:.84rem}
+.st-frei{color:var(--ok)} .st-laedt{color:var(--sign)} .st-reserviert{color:var(--led)}
+.log{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:.84rem;max-height:260px;overflow-y:auto}
+.log li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.log time{font-family:var(--f-mono);color:var(--muted);font-size:.78rem;font-variant-numeric:tabular-nums}
+.krows{display:grid;gap:10px}
+.krow{display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:center}
+.krow .lab{font:600 .82rem var(--f-mono)}
+.krow .lab small{display:block;color:var(--muted);font-weight:400}
+.slots{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px;overflow-x:auto}
+.slot{height:34px;border-radius:5px;background:var(--chip);border:1px dashed var(--line);font:500 .7rem var(--f-mono);display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+.slot.full{background:var(--laneT);color:#fff;border:0}
+.slot.new{background:var(--led);color:#111;border:0}
+.exitarrow{font:500 .7rem var(--f-mono);color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.content>*{animation:in .25s ease both}@keyframes in{from{transform:translateY(6px);opacity:.6}to{transform:none;opacity:1}}}
+</style>
+
+<header class="top">
+  <div>
+    <div class="tag">European Mobility Systems · Gruppe F · Prototyp</div>
+    <h1>RastOase App</h1>
+    <p class="sub">Klickbarer Prototyp für die RastOase 2041 an der A5 (Fahrtrichtung Basel). Wähle eine Persona und gehe den Ablauf von der Routenplanung bis zur Abfahrt durch. Der Lageplan zeigt, wohin die App die Person leitet.</p>
+  </div>
+  <div class="personas" role="group" aria-label="Persona wählen" id="personas"></div>
+</header>
+
+<div class="wrap">
+  <div class="col">
+    <section class="panel" aria-label="Lageplan">
+      <div class="tag">Lageplan RastOase 2041 · Gruppe F</div>
+      <h2 id="lp-title">Lageplan</h2>
+      <div id="lp-big"></div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--led)"></i>Zugewiesene Zone</span>
+        <span><i class="dot" style="background:var(--sign)"></i>Spur an der Einfahrt</span>
+        <span><i class="dot" style="background:#111"></i>Angebote (Nummer wie in der App)</span>
+        <span>gestrichelt: Fahrweg entlang der Einbahnstraßen</span>
+      </div>
+    </section>
+
+    <section class="panel" aria-live="polite">
+      <div class="tag" id="p-step"></div>
+      <h2 id="p-title"></h2>
+      <p id="p-text"></p>
+      <h3>Persona</h3>
+      <p id="p-need"></p>
+      <h3>Technik dahinter</h3>
+      <dl class="kv" id="p-tech"></dl>
+      <h3>Usability (Nielsen) und Barrierefreiheit</h3>
+      <ul id="p-ux"></ul>
+      <h3>Daten an den digitalen Zwilling</h3>
+      <div class="data" id="p-data"></div>
+      <ol class="steps" id="steps" aria-label="Bildschirme"></ol>
+    </section>
+  </div>
+
+  <div class="phone-col">
+    <div class="phone">
+      <div class="screen" id="screen">
+        <div class="status"><span>14:25</span><span>A5 · Nord–Süd</span><span>5G 80%</span></div>
+        <div class="appbar"><span class="brand">RastOase</span><span class="who" id="who"></span></div>
+        <div class="content" id="content"></div>
+        <nav class="tabbar" aria-label="App-Navigation" id="tabbar"></nav>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section class="ops" aria-label="Betreiber-Sicht">
+  <div class="ops-head">
+    <div>
+      <div class="tag">Betreiber-Sicht · Digitaler Zwilling Gruppe F (AAS)</div>
+      <h2>Leitstand RastOase</h2>
+      <p class="sub">Dieselben Daten, die die App nutzt, sieht der Betrieb live. Die Struktur entspricht den Teilmodellen im AAS Designer (Parkleitsystem, Ladepark, Energie, GastronomieSanitaer, Abfallmanagement). Werte sind simuliert.</p>
+    </div>
+    <button type="button" class="cta alt small-cta" id="ops-toggle" aria-pressed="true">Live-Simulation pausieren</button>
+  </div>
+  <div class="ops-grid">
+    <div class="panel">
+      <h3 class="h3top">Belegung je Zone</h3>
+      <div id="ops-zones" class="bars"></div>
+    </div>
+    <div class="panel">
+      <h3 class="h3top">Ladepark</h3>
+      <div id="ops-charge" class="chips"></div>
+      <h3>Energie</h3>
+      <dl class="kv" id="ops-energy"></dl>
+      <h3>Abfall (smarte Behälter)</h3>
+      <div id="ops-waste" class="bars"></div>
+    </div>
+    <div class="panel">
+      <h3 class="h3top">Ereignisse</h3>
+      <ol id="ops-log" class="log"></ol>
+    </div>
+  </div>
+</section>
+
+<section class="ops" aria-label="Kolonnenparken">
+  <div class="ops-head">
+    <div>
+      <div class="tag">Algorithmus · LkwTelematikParken</div>
+      <h2>Kolonnenparken: Zuweisung nach Abfahrtszeit</h2>
+      <p class="sub">Lkw parken hintereinander in Reihen ohne eigene Ausfahrt. Damit niemand zugeparkt wird, darf ein Lkw nur hinter Fahrzeugen stehen, die früher oder gleichzeitig abfahren. Die Software wählt die Reihe, deren Zeitfenster passt. Das spart Fahrgassen und bringt laut Impuls rund 50 % mehr Kapazität.</p>
+    </div>
+    <div class="btns">
+      <button type="button" class="cta small-cta" id="k-next">Nächster Lkw kommt an</button>
+      <button type="button" class="cta alt small-cta" id="k-reset">Zurücksetzen</button>
+    </div>
+  </div>
+  <div class="ops-grid k-grid">
+    <div class="panel">
+      <div id="k-rows" class="krows"></div>
+      <p class="small" id="k-msg" aria-live="polite"></p>
+    </div>
+    <div class="panel">
+      <h3 class="h3top">Regel (vereinfacht)</h3>
+      <div class="data">für jeden ankommenden Lkw mit Abfahrt t:
+  Kandidaten = Reihen mit Fenster ∋ t
+               und freiem Platz
+               und letzte Abfahrt in Reihe ≤ t
+  wenn Kandidaten leer:
+      → Ausweichplatz (konventionell)
+  sonst:
+      → Reihe mit kleinstem Abstand
+        zwischen t und letzter Abfahrt
+  Anzeige an Reihe + App: „T2, Platz 5“</div>
+      <h3>Kennzahlen</h3>
+      <dl class="kv" id="k-kpi"></dl>
+    </div>
+  </div>
+</section>
+
+<script>
+const ICON={
+ route:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h8a3 3 0 0 0 0-6H8a3 3 0 0 1 0-6h8"/></svg>',
+ park:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>',
+ info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>',
+ user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+ truck:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6h12v10H2zM14 10h4l3 3v3h-7z"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>',
+ family:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="6" r="3"/><circle cx="17" cy="9" r="2"/><path d="M3 21v-3a5 5 0 0 1 10 0v3M14 21v-2a3 3 0 0 1 6 0v2"/></svg>',
+ bolt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
+ wheel:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="4" r="2"/><path d="M11 7v6h6l2 5"/><path d="M8 10a6 6 0 1 0 7 8"/></svg>',
+ brief:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V4h8v3"/></svg>',
+ fuel:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h12M14 9h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3"/><path d="M7 7h4"/></svg>',
+ caravan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 16V7a2 2 0 0 1 2-2h12a4 4 0 0 1 4 4v7zM20 14h2"/><circle cx="8" cy="18" r="2"/><path d="M6 9h4v3H6z"/></svg>'
+};
+
+/* Positionen im Lageplan (SVG-Koordinaten 1600 × 775) */
+const LOC={
+ einfahrt:[1588,622,"Einfahrt"], laneT:[1250,637,"LKW Lane"], laneP:[1372,540,"Family & Travel Lane"], laneF:[1290,560,"Fast Lane"],
+ lkw:[380,365,"LKW-Bereich, Block T2"], service:[370,230,"Service-Zone Lkw"], wohn:[680,300,"W1 Gespanne"], eauto:[1228,282,"E-Auto-Zone"],
+ pkw:[830,423,"Familien-Parken P3"], bf:[924,357,"B1 barrierefrei"], zentral:[920,262,"Zentralgebäude"],
+ hub:[1150,513,"Energie-Hub (Fast Lane)"], drive:[848,523,"Drive-Thru"], spiel:[693,90,"Spielplatz"], hund:[1263,90,"Hundepark"],
+ park:[1080,110,"Park & Bewegungspfad"], hotel:[106,140,"Hotel"], schlaf:[880,60,"Schlafkabinen (zentral)"], fitness:[380,110,"Fitness & Calisthenics"],
+ mobility:[1487,500,"Mobility Hub"], ausfahrt:[60,662,"Ausfahrt"]
+};
+/* Fahrwege: Einfahrt → Spur → Zone und Zone → Ausfahrt (entlang der Einbahnstraßen, kreuzungsfrei) */
+const WAY={
+ lane:{T:[[1588,637],[1250,637]],P:[[1588,607],[1372,607],[1372,540]],F:[[1588,622],[1335,622],[1290,585],[1290,560]]},
+ in:{lkw:[[1588,637],[560,637],[560,365],[380,365]],
+     eauto:[[1588,607],[1372,607],[1372,282],[1228,282]],
+     pkw:[[1588,607],[1372,607],[1372,455],[1092,455],[1092,423],[830,423]],
+     bf:[[1588,607],[1372,607],[1372,455],[1092,455],[1092,373],[924,373],[924,357]],
+     wohn:[[1588,607],[1372,607],[1372,165],[745,165],[745,250],[680,300]],
+     hub:[[1588,622],[1335,622],[1290,585],[1290,513],[1150,513]]},
+ out:{lkw:[[380,365],[175,365],[175,637],[60,662]],
+     eauto:[[1228,282],[1092,282],[1092,455],[590,455],[590,637],[175,637],[60,662]],
+     pkw:[[830,423],[745,423],[745,455],[590,455],[590,637],[175,637],[60,662]],
+     bf:[[924,357],[924,373],[745,373],[745,455],[590,455],[590,637],[175,637],[60,662]],
+     wohn:[[680,300],[598,330],[590,330],[590,637],[175,637],[60,662]],
+     hub:[[1150,513],[940,545],[848,545],[590,545],[590,637],[175,637],[60,662]]}
+};
+const LANE={T:{name:"LKW Lane",cls:"ln-t",loc:"laneT",color:"var(--laneT)"},P:{name:"Family & Travel Lane",cls:"ln-p",loc:"laneP",color:"var(--laneP)"},F:{name:"Fast Lane",cls:"ln-f",loc:"laneF",color:"var(--laneF)"}};
+
+const P={
+ guenther:{name:"Günther",label:"Lkw-Fahrer",plate:"SB-GK 1974",vehicle:"E-Sattelzug, 16,5 m",need:"truck",lane:"T",zoneLoc:"lkw",
+  route:{dest:"Basel",rest:"Lenkzeit endet in 1 h 40 min (Pflichtpause nach 4,5 h)",pick:"RastOase · 92 km",free:"14 von 120 Lkw-Plätzen frei",eta:"15:31"},
+  needs:["Lkw-Stellplatz für 9 h Ruhezeit","Nachtladen am Platz","Dusche","Warmes Essen"],
+  assign:{zone:"T2",spot:"LKW-Bereich, Block T2, Platz 07",dist:"60 m zur Service-Zone (Duschen), Schlafkabinen zentral",dur:"Abfahrt geplant 05:30 (Block T2: 05–06 Uhr)",extra:"Kolonnenparken nach Abfahrtszeit, niemand wird zugeparkt. Der Lkw lädt über Nacht am Platz."},
+  offers:[["Dusche reservieren","Service-Zone · frei ab 21:10 · 4 €","service"],["Abendessen vorbestellen","Zentralgebäude · Burger-Menü 11,90 €","zentral"],["Schlafkabine buchen","zentral hinter dem Hauptgebäude · 5 von 12 frei","schlaf"]],
+  persona:"Günther, 50, Berufskraftfahrer seit 30 Jahren. Will einen sicheren Parkplatz, saubere Sanitäranlagen und gesundes Essen. Größter Stress: keine freien Lkw-Plätze am Abend."},
+ sabine:{name:"Sabine",label:"Familie",plate:"SB-SW 512",vehicle:"E-Van, 3 Erwachsene, 2 Kinder, Hund",need:"family",lane:"P",zoneLoc:"pkw",
+  route:{dest:"Freiburg (Urlaub)",rest:"Kinder seit 2 h im Auto",pick:"RastOase · 38 km",free:"Familien-Parken: 22 Plätze frei",eta:"14:52"},
+  needs:["Parkplatz nah am Spielplatz","Wickelraum","Hundewiese"],
+  assign:{zone:"P3",spot:"Familien-Parken, Platz P3-12 mit Ladepunkt",dist:"Kurzer Weg zum Zentralgebäude, Spielplatz über den Zebrastreifen",dur:"Aufenthalt ca. 45 min",extra:"Breiter Stellplatz zum Aussteigen mit Kindern. Das Auto lädt nebenbei mit 11 kW."},
+  offers:[["Spielplatz","geöffnet · betreut bis 20 Uhr","spiel"],["Hundepark","eingezäunt, Wasserstelle","hund"],["Kinderteller vorbestellen","Zentralgebäude · fertig in 15 min","zentral"]],
+  persona:"Sabine, 35, fährt mit Kindern, Großmutter und Hund in den Urlaub. Alle haben gleichzeitig andere Bedürfnisse: Toilette, Hunger, Auslauf."},
+ tanja:{name:"Tanja",label:"Geschäftsreisende",plate:"SB-TB 46E",vehicle:"BMW, elektrisch",need:"work",lane:"P",zoneLoc:"eauto",
+  route:{dest:"Basel (Kundentermin)",rest:"Akku 24 %, Videocall um 15:30",pick:"RastOase · 51 km",free:"E-Auto-Zone: 41 Ladeplätze frei",eta:"15:05"},
+  needs:["Schnellladen","Ruhiger Arbeitsplatz mit WLAN","Kaffee"],
+  assign:{zone:"E2",spot:"E-Auto-Zone, Platz E2-03 (bis 300 kW)",dist:"Kurzer Weg zur Study Box im Zentralgebäude",dur:"Laden 24 → 80 % in ca. 20 min",extra:"Ladeplatz 10 min reserviert. Das Lastmanagement verteilt die PV- und Speicherleistung."},
+  offers:[["Study Box buchen","Zentralgebäude · schallgedämmt, WLAN · 30 min 5 €","zentral"],["Kaffee vorbestellen","Abholung am Drive-Thru","drive"],["Ladestand live","Push bei 80 %","eauto"]],
+  persona:"Tanja, 46, Geschäftsführerin aus Saarbrücken, pendelt zwischen Saarbrücken und Berlin. Will Pausen produktiv nutzen: laden, telefonieren, kurz bewegen."},
+ leon:{name:"Leon",label:"Rollstuhl",plate:"SB-LR 25",vehicle:"E-Pkw, umgebaut",need:"access",lane:"P",zoneLoc:"bf",
+  route:{dest:"Karlsruhe (Dienstreise)",rest:"Nächste geprüft barrierefreie Raststätte",pick:"RastOase · 44 km",free:"Barrierefreie Plätze: 4 von 8 frei",eta:"15:12"},
+  needs:["Barrierefreier Parkplatz am Eingang","Rollstuhlgerechtes WC","Hilfe beim Einstecken des Ladekabels"],
+  assign:{zone:"B1",spot:"Barrierefreie Zone, Platz B1-02",dist:"Stufenlos zum Zentralgebäude, 15 m, automatische Türen",dur:"Ladehilfe angefragt",extra:"Personal ist informiert und steckt das schwere Ladekabel ein."},
+  offers:[["Barrierefreiheit prüfen","WC, Rampen, Türen: alle in Betrieb","zentral"],["Hilfe rufen","Mitarbeitende in ca. 3 min da","bf"],["Am Platz bestellen","Lieferung an den Tisch","zentral"]],
+  persona:"Leon, 25, Industriekaufmann mit Gehbehinderung. Braucht viel Zeit, um vorab herauszufinden, ob eine Raststätte geeignet ist. Will selbstständig sein."},
+ wohn:{name:"Familie Hansen",label:"E-Auto + Wohnanhänger",plate:"SB-HN 77E",vehicle:"E-SUV mit Wohnanhänger, 13 m",need:"trailer",lane:"P",zoneLoc:"wohn",
+  route:{dest:"Gardasee",rest:"Reichweite mit Anhänger 140 km",pick:"RastOase · 61 km",free:"Gespann-Ladeplätze: 2 von 10 frei",eta:"15:20"},
+  needs:["Laden ohne Abkuppeln","Langer Stellplatz","Spaziergang"],
+  assign:{zone:"W1",spot:"W1 Gespanne, Durchfahr-Ladeplatz W1-01",dist:"Durchfahrprinzip, kein Rangieren",dur:"Laden 18 → 80 % in 35 min",extra:"Stellplatz 18 m lang"},
+  offers:[["Spaziergang im Park","Rundweg 0,6 km · Picknickplätze","park"],["Café im Zentralgebäude","geöffnet bis 22 Uhr","zentral"],["Ladestand live","Push bei 80 %","wohn"]],
+  persona:"Zwei Personen mit E-SUV und Wohnanhänger. Heutige Ladesäulen sind für Gespanne kaum nutzbar, weil man abkuppeln muss."},
+ markus:{name:"Markus",label:"Pendler",plate:"SB-MK 300",vehicle:"E-Auto, Kompaktklasse",need:"fast",lane:"F",zoneLoc:"hub",
+  route:{dest:"Karlsruhe (Arbeit)",rest:"Akku 18 %, Termin um 8:30",pick:"RastOase · 9 km",free:"Energie-Hub: Ladeplatz sofort frei",eta:"07:42"},
+  needs:["Schnell laden (ca. 8 min)","Kaffee mitnehmen","Keine Wartezeit"],
+  assign:{zone:"F2",spot:"Energie-Hub, Durchfahr-Ladeplatz F2 (400 kW)",dist:"Danach Drive-Thru, dann direkt zur Ausfahrt",dur:"Laden 18 → 60 % in ca. 8 min, Stopp ca. 10 min",extra:"Ohne Rangieren: vorwärts rein, vorwärts raus. Bezahlung automatisch über Kennzeichen und Abo."},
+  offers:[["Kaffee am Drive-Thru","vorbestellt, liegt bereit","drive"],["Automatisch bezahlen","über RastOase-Abo","hub"],["Pendler-Abo","20 % auf Kaffee, Platzgarantie","zentral"]],
+  persona:"Markus, 41, pendelt täglich über die A5. Will nur kurz laden, Kaffee holen und weiter. Für ihn gibt es die Fast Lane mit Raststätten-Abo für Pendler."}
+};
+
+const NEEDS=[["truck","Lkw-Ruhezeit","truck"],["family","Familie & Kinder","family"],["bolt","E-Auto laden","work"],["wheel","Barrierefrei","access"],["caravan","Gespann / Wohnmobil","trailer"],["fuel","Schnell laden & weiter","fast"]];
+
+const STEPS=[
+ {key:"route",short:"1 Route",tab:"route",title:"Raststätte finden",hta:"HTA 1: Pause planen",
+  text:"Die App schlägt eine passende Raststätte vor. Grundlage sind Entfernung, freie Plätze und das Profil der Person.",
+  tech:[["Funktion","Intelligente Routenplanung"],["Eingaben","Position, Lenk-/Ladezeit, Profil"],["Quelle","Belegungsdaten der Raststätten (Echtzeit)"],["Methode","Bewertung nach Entfernung + Verfügbarkeit + Bedarf"]],
+  ux:["Sichtbarkeit des Systemstatus: freie Plätze und Ankunftszeit sofort sichtbar","Ein Vorschlag statt langer Liste senkt die kognitive Last","Bedienung während der Fahrt nur per Sprache (Ablenkung vermeiden)"]},
+ {key:"arrive",short:"2 Einfahrt",tab:"park",title:"Einfahrt, KI-Erkennung und Spur",hta:"HTA 2: Einfahren",
+  text:"An der Einfahrt erkennen Kameras Kennzeichen und Fahrzeugtyp. Die Schilderbrücke und die App zeigen die passende Spur. Die drei Spuren trennen sich ohne Kreuzung: Family & Travel biegt rechts ab, Fast Lane führt zum Energie-Hub, LKW Lane geradeaus zum Lkw-Bereich.",
+  tech:[["Funktion","KI-gestützte Fahrzeugerkennung + Spurzuweisung"],["Sensorik","Kameras an der KI-Schilderbrücke, Längenmessung"],["Ergebnis","Fahrzeugklasse und Spur"],["Datenschutz","Kennzeichen nur als Hash, Löschung bei Ausfahrt"]],
+  ux:["Transparenz: klare Info, wofür die Kamera genutzt wird","Spurfarben in App und auf der Fahrbahn identisch","Ohne App funktioniert die Zuweisung über die Schilderbrücke"]},
+ {key:"need",short:"3 Bedarf",tab:"park",title:"Bedarf wählen",hta:"HTA 3: Bedarf angeben",
+  text:"Große Kacheln mit Symbolen. Das Profil ist vorausgewählt, die Person kann ändern.",
+  tech:[["Funktion","Nutzerprofil"],["Speicherung","Lokal auf dem Gerät, freiwillig"],["Nutzung","Steuert Zone im Lageplan und Angebote"]],
+  ux:["Wiedererkennen statt Erinnern: Symbole + kurzer Text","Große Touch-Flächen (mind. 48 px) für ältere Menschen","Änderung jederzeit möglich"]},
+ {key:"assign",short:"4 Zuweisung",tab:"park",title:"Zone und Stellplatz im Lageplan",hta:"HTA 4: Parken",
+  text:"Das System weist eine Zone aus dem Lageplan und einen konkreten Platz zu. Bodenmarkierung und Anzeigen zeigen denselben Code wie die App.",
+  tech:[["Funktion","Smart Parking + digitale Ausschilderung"],["Sensorik","Bodensensoren je Stellplatz, Kameras"],["Methode","Zuweisung nach Fahrzeugklasse, Bedarf, Abfahrtszeit"],["Lkw","Kolonnenparken: bis zu +50 % Kapazität (Impuls, Folie 12)"]],
+  ux:["Konsistenz: gleicher Code in App, auf Schild und Boden","Fehlervermeidung: nur passende Plätze werden angeboten","Karte zeigt Ziel und Weg auf einen Blick"]},
+ {key:"offers",short:"5 Angebote",tab:"info",title:"Angebote auf dem Gelände",hta:"HTA 5: Pause nutzen",
+  text:"Passende Angebote zum Bedarf mit Ort im Lageplan: Zentralgebäude, Schlafkabinen, Service-Zone, Spielplatz, Hundepark, Park, Drive-Thru.",
+  tech:[["Funktion","Raststätten-App: zentrale Infos"],["Quelle","Digitaler Zwilling (AAS) der Raststätte"],["Live","Status von Duschen, Ladesäulen, Spielplatz"]],
+  ux:["Nur relevante Angebote (Progressive Disclosure)","Preise und Wartezeit vor der Buchung sichtbar","Screenreader-Labels für alle Symbole"]},
+ {key:"leave",short:"6 Abfahrt",tab:"user",title:"Ausfahrt und Feedback",hta:"HTA 6: Weiterfahren",
+  text:"Kurze Rückmeldung, der Platz wird freigegeben, das Kennzeichen wird gelöscht. Alle Wege führen ohne Kreuzung zur Ausfahrt links.",
+  tech:[["Funktion","Freigabe des Platzes, Feedback"],["Datenschutz","Kennzeichen-Hash wird gelöscht"],["Nutzen","Feedback verbessert Prognosen"]],
+  ux:["Rückmeldung in einem Klick","Bestätigung, dass Daten gelöscht sind","Abo für Pendler optional"]}
+];
+
+let state={p:"guenther",s:0,sel:null,stars:0};
+try{const s=JSON.parse(localStorage.getItem("rastoase")||"{}");if(s.p&&P[s.p])state.p=s.p}catch(e){}
+
+const $=id=>document.getElementById(id);
+function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+const pct=(k)=>{const [x,y]=LOC[k];return `left:${(x/16).toFixed(2)}%;top:${(y/7.75).toFixed(2)}%`};
+
+/* Lageplan mit Markern. mode: lane | route | offers | exit | all */
+const line=(pts,col)=>{const p=pts.map(q=>q.join(",")).join(" ");return `<polyline points="${p}" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/><polyline points="${p}" fill="none" stroke="${col}" stroke-width="7" stroke-dasharray="20 12" stroke-linecap="round" stroke-linejoin="round"/>`};
+function mapHTML(mode){
+ const p=P[state.p], ln=LANE[p.lane];
+ let marks="", path="";
+ if(mode==="lane") path=line(WAY.lane[p.lane],ln.color);
+ if(mode==="route"||mode==="all") path=line(WAY.in[p.zoneLoc],ln.color);
+ if(mode==="exit"){ path=line(WAY.out[p.zoneLoc],"var(--led)"); marks+=`<span class="mk lane" style="${pct("ausfahrt")};background:var(--ink)" title="Ausfahrt">↩</span>`; }
+ if(mode==="lane"||mode==="route"||mode==="all") marks+=`<span class="mk lane" style="${pct(ln.loc)};background:${ln.color}" title="${esc(ln.name)}">${p.lane==="T"?"L":p.lane==="F"?"F":"P"}</span>`;
+ if(mode!=="lane") marks+=`<span class="mk zone" style="${pct(p.zoneLoc)}" title="${esc(LOC[p.zoneLoc][2])}">${esc(p.assign.zone)}</span>`;
+ if(mode==="offers"||mode==="all") p.offers.forEach((o,i)=>{ if(o[2]!==p.zoneLoc) marks+=`<span class="mk off" style="${pct(o[2])}" title="${esc(LOC[o[2]][2])}">${i+1}</span>`;});
+ return `<div class="lp" role="img" aria-label="Lageplan RastOase 2041 mit ${esc(LOC[p.zoneLoc][2])} markiert"><img src="lageplan-rastoase-2041.svg" alt=""><svg viewBox="0 0 1600 775" preserveAspectRatio="none">${path}</svg>${marks}</div>`;
+}
+
+function screenHTML(){
+ const p=P[state.p], st=STEPS[state.s], ln=LANE[p.lane];
+ const next=(label,alt)=>`<button class="cta${alt?" alt":""}" type="button" data-go="next">${label}</button>`;
+ switch(st.key){
+  case "route":return `
+   <div class="card"><div class="small">Ziel</div><h4>${esc(p.route.dest)}</h4><div class="small">${esc(p.route.rest)}</div></div>
+   <div class="card"><div class="row"><div><div class="small">Empfohlen an der A5</div><h4>${esc(p.route.pick)}</h4></div><span class="pill ok">passt</span></div>
+     <div class="row small"><span>${esc(p.route.free)}</span><span>Ankunft ${esc(p.route.eta)}</span></div></div>
+   ${mapHTML("all")}
+   <div class="small">Vorschau: Ihr Weg auf der RastOase</div>
+   ${next("Route übernehmen")}`;
+  case "arrive":return `
+   <div class="vms" role="img" aria-label="Anzeige an der Einfahrt"><span class="l2">WILLKOMMEN · RASTOASE</span><span class="l1">${esc(p.plate)}</span><span class="l2">ERKANNT: ${esc(p.vehicle.toUpperCase())}</span></div>
+   <div class="lanes" role="group" aria-label="Spuren an der Einfahrt">
+     ${Object.entries(LANE).map(([k,v])=>`<div class="lane ${v.cls}${k===p.lane?" on":""}">${esc(v.name)}<small>${k==="T"?"Lkw":k==="P"?"Pkw · Gespann · Bus":"Laden · Drive-Thru"}</small></div>`).join("")}
+   </div>
+   <div class="card"><div class="row"><h4>Bitte ${esc(ln.name)} nutzen</h4><span class="pill ok">erkannt</span></div><div class="small">Die Kamera wird nur zur Zuweisung genutzt. Ihr Kennzeichen wird verschlüsselt gespeichert und bei der Ausfahrt gelöscht.</div></div>
+   ${mapHTML("lane")}
+   ${next("Weiter")}`;
+  case "need":{
+   const cur=state.sel??p.need;
+   return `<div class="small">Was brauchen Sie heute?</div>
+   <div class="opts">${NEEDS.map(([ic,l,k],i)=>`<button class="opt" type="button" id="need-${i}" data-need="${k}" aria-pressed="${k===cur}">${ICON[ic]}<span>${esc(l)}</span></button>`).join("")}</div>
+   <div class="card small">Ihre Wünsche: ${p.needs.map(esc).join(" · ")}</div>
+   ${next("Platz zuweisen")}`;}
+  case "assign":return `
+   <div class="card"><div class="small">Ihr Ziel</div><div class="row"><span class="big">${esc(p.assign.zone)}</span><span class="pill ok">reserviert</span></div><h4>${esc(p.assign.spot)}</h4>
+     <div class="small">${esc(p.assign.dist)}</div><div class="small">${esc(p.assign.dur)}</div></div>
+   ${mapHTML("route")}
+   <div class="vms" role="img" aria-label="Digitale Ausschilderung"><span class="l2">FOLGEN SIE DER MARKIERUNG</span><span class="l1">→ ${esc(p.assign.zone)}</span></div>
+   <div class="card small">${esc(p.assign.extra)}</div>
+   ${next("Navigation starten")}`;
+  case "offers":return `
+   <div class="small">Für Sie auf dem Gelände</div>
+   ${mapHTML("offers")}
+   <div class="card list">${p.offers.map(([t,d,l],i)=>`<div class="li"><div class="row" style="justify-content:flex-start;gap:10px;align-items:flex-start"><span class="num">${i+1}</span><div><div style="font-weight:600">${esc(t)}</div><div class="small">${esc(d)}</div><div class="small">${esc(LOC[l][2])}</div></div></div><span class="pill">buchen</span></div>`).join("")}</div>
+   ${next("Weiter zur Abfahrt",true)}`;
+  case "leave":return `
+   <div class="card"><h4>Gute Weiterfahrt, ${esc(p.name)}</h4><div class="small">Ihr Platz ${esc(p.assign.zone)} wurde freigegeben. Ihr Kennzeichen wurde gelöscht.</div></div>
+   ${mapHTML("exit")}
+   <div class="card"><div class="small">Wie war Ihre Pause?</div><div class="stars" role="group" aria-label="Bewertung">${[1,2,3,4,5].map(n=>`<button type="button" id="star-${n}" data-star="${n}" class="${n<=state.stars?"on":""}" aria-label="${n} Sterne">★</button>`).join("")}</div>
+   ${state.stars?`<div class="small">Danke! Ihre Bewertung hilft, die Auslastung besser vorherzusagen.</div>`:""}</div>
+   <button class="cta alt" type="button" data-go="restart">Neue Fahrt planen</button>`;
+ }
+}
+
+function dataFor(){
+ const p=P[state.p], st=STEPS[state.s];
+ const m={
+  route:{"RouteRequest":{profil:p.label,ziel:p.route.dest,empfehlung:"RastOase A5",grund:p.route.free}},
+  arrive:{"Fahrzeugerkennung":{kennzeichen:"sha256:9f1c…",fahrzeugklasse:p.vehicle,spur:LANE[p.lane].name,loeschung:"bei Ausfahrt"}},
+  need:{"Nutzerprofil":{bedarf:p.needs}},
+  assign:{"Parkleitsystem":{bereich:LOC[p.zoneLoc][2],zone:p.assign.zone,status:"reserviert",sensor:"belegt=false"}},
+  offers:{"Einrichtungen":p.offers.map(o=>({angebot:o[0],ort:LOC[o[2]][2]}))},
+  leave:{"Parkleitsystem":{zone:p.assign.zone,status:"frei"},"Feedback":{sterne:state.stars||null}}
+ };
+ return JSON.stringify(m[st.key],null,2);
+}
+
+function renderPersonas(){
+ $("personas").innerHTML=Object.entries(P).map(([k,v])=>`<button type="button" id="pp-${k}" data-p="${k}" aria-pressed="${k===state.p}">${esc(v.name)} · ${esc(v.label)}</button>`).join("");
+ $("personas").querySelectorAll("button").forEach(b=>b.onclick=()=>{state.p=b.dataset.p;state.s=0;state.sel=null;state.stars=0;try{localStorage.setItem("rastoase",JSON.stringify({p:state.p}))}catch(e){}render()});
+}
+
+function render(){
+ renderPersonas();
+ const p=P[state.p], st=STEPS[state.s];
+ $("who").innerHTML=`${esc(p.name)}<br>${esc(p.plate)}`;
+ $("content").innerHTML=screenHTML();
+ $("content").scrollTop=0;
+ const tabs=[["route","Route","route"],["park","Parken","park"],["info","Angebote","info"],["user","Profil","user"]];
+ $("tabbar").innerHTML=tabs.map(([k,l,ic])=>`<button type="button" id="tab-${k}" data-tab="${k}" aria-current="${st.tab===k?"page":"false"}">${ICON[ic]}${l}</button>`).join("");
+ $("tabbar").querySelectorAll("button").forEach(b=>b.onclick=()=>{const i=STEPS.findIndex(s=>s.tab===b.dataset.tab);if(i>=0){state.s=i;render()}});
+ $("content").querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{if(b.dataset.go==="restart"){state.s=0;state.stars=0;state.sel=null}else state.s=Math.min(state.s+1,STEPS.length-1);render()});
+ $("content").querySelectorAll("[data-need]").forEach(b=>b.onclick=()=>{state.sel=b.dataset.need;render()});
+ $("content").querySelectorAll("[data-star]").forEach(b=>b.onclick=()=>{state.stars=+b.dataset.star;render()});
+ $("lp-title").textContent=`${p.name}: ${LANE[p.lane].name} → ${LOC[p.zoneLoc][2]} (${p.assign.zone})`;
+ $("lp-big").innerHTML=mapHTML(st.key==="leave"?"exit":"all");
+ $("p-step").textContent=`Bildschirm ${state.s+1} von ${STEPS.length} · ${st.hta}`;
+ $("p-title").textContent=st.title;
+ $("p-text").textContent=st.text;
+ $("p-need").textContent=p.persona;
+ $("p-tech").innerHTML=st.tech.map(([a,b])=>`<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join("");
+ $("p-ux").innerHTML=st.ux.map(u=>`<li>${esc(u)}</li>`).join("");
+ $("p-data").textContent=dataFor();
+ $("steps").innerHTML=STEPS.map((s,i)=>`<li><button type="button" id="step-${i}" data-step="${i}" aria-current="${i===state.s?"step":"false"}">${s.short}</button></li>`).join("");
+ $("steps").querySelectorAll("button").forEach(b=>b.onclick=()=>{state.s=+b.dataset.step;render()});
+}
+render();
+
+/* ---------- Betreiber-Sicht (simulierte Zwillingsdaten) ---------- */
+const OPS={
+ zones:[["T","LKW-Bereich T1–T4",120,106],["E","E-Auto-Zone E1–E3",156,115],["P3","Familien-Parken",107,85],["F","Energie-Hub",16,9],["W1","Gespanne",10,8],["B1","Barrierefrei",8,4]],
+ charge:[["E2-03",300,"reserviert"],["E2-04",300,"laedt"],["F2",400,"laedt"],["W1-01",150,"frei"],["MCS_1",1000,"laedt"],["T2-07",100,"frei"]],
+ pv:1630, soc:72, t:14*60+25,
+ waste:[["Lkw-Bereich, Insel 2",78],["Familien-Parken",64],["Park/Spielplatz",41],["E-Auto-Zone",57],["Zentralgebäude",83]],
+ log:[["14:25","SB-GK 1974 erkannt → LKW Lane → T2"],["14:24","Ladesäule LS03: Ladevorgang gestartet (E2)"],["14:22","WC-Anlage gereinigt, Status aktualisiert"]]
+};
+const plates=["KA-RT 88","F-LK 204","HD-MS 7","SB-TT 31","PL-WAW 552","NL-82-XK","MA-EV 19E","FR-CA 401"];
+const clock=()=>{const h=Math.floor(OPS.t/60)%24,m=OPS.t%60;return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`};
+function renderOps(){
+ $("ops-zones").innerHTML=OPS.zones.map(([c,n,cap,occ])=>{const r=occ/cap,cls=r>.9?"hi":r>.7?"mid":"";return `<div class="bar"><div class="row"><span><b>${c}</b> ${esc(n)}</span><span class="small" style="font-variant-numeric:tabular-nums">${occ}/${cap} · ${cap-occ} frei</span></div><div class="track"><div class="fill ${cls}" style="width:${Math.round(r*100)}%"></div></div></div>`}).join("");
+ $("ops-charge").innerHTML=OPS.charge.map(([id,kw,s])=>`<div class="chip"><b>${id}</b><span>${kw} kW</span><span class="st-${s}">${s}</span></div>`).join("");
+ $("ops-energy").innerHTML=`<dt>PV-Erzeugung</dt><dd>${OPS.pv.toLocaleString("de-DE")} kW</dd><dt>Speicher</dt><dd>${OPS.soc} %</dd><dt>Ladebedarf</dt><dd>${(OPS.charge.filter(c=>c[2]==="laedt").reduce((a,c)=>a+c[1],0)*0.8).toLocaleString("de-DE")} kW</dd>`;
+ $("ops-waste").innerHTML=OPS.waste.map(([n,v])=>{const cls=v>=85?"hi":v>=70?"mid":"";return `<div class="bar"><div class="row"><span>${esc(n)}</span><span class="small" style="font-variant-numeric:tabular-nums">${v} %${v>=85?" · Leerung geplant":""}</span></div><div class="track"><div class="fill ${cls}" style="width:${v}%"></div></div></div>`}).join("");
+ $("ops-log").innerHTML=OPS.log.slice(0,12).map(([t,m])=>`<li><time>${t}</time><span>${esc(m)}</span></li>`).join("");
+}
+function tickOps(){
+ OPS.t+=1;
+ const z=OPS.zones[Math.floor(Math.random()*OPS.zones.length)];
+ const delta=Math.random()<.55?1:-1; const before=z[3]; z[3]=Math.max(0,Math.min(z[2],z[3]+delta));
+ const lane=z[0]==="T"?"LKW Lane":z[0]==="F"?"Fast Lane":"Family & Travel Lane";
+ if(z[3]>before) OPS.log.unshift([clock(),`${plates[Math.floor(Math.random()*plates.length)]} erkannt → ${lane} → ${z[0]}`]);
+ else if(z[3]<before) OPS.log.unshift([clock(),`Platz in ${z[0]} frei geworden, Kennzeichen gelöscht`]);
+ if(Math.random()<.3){const c=OPS.charge[Math.floor(Math.random()*OPS.charge.length)];const nx={frei:"laedt",laedt:"frei",reserviert:"laedt"}[c[2]];c[2]=nx;OPS.log.unshift([clock(),`Ladesäule ${c[0]}: ${nx==="laedt"?"Ladevorgang gestartet":"wieder frei"}`]);}
+ const w=OPS.waste[Math.floor(Math.random()*OPS.waste.length)]; w[1]=Math.min(100,w[1]+Math.ceil(Math.random()*3));
+ if(w[1]>=90){OPS.log.unshift([clock(),`Behälter ${w[0]} 90 % voll → Leerung beauftragt`]);w[1]=8;}
+ OPS.pv=Math.max(0,OPS.pv+Math.round((Math.random()-.5)*60));
+ OPS.soc=Math.max(10,Math.min(100,OPS.soc+(OPS.pv>1500?1:-1)));
+ renderOps();
+}
+let opsTimer=null;
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+function setOps(on){clearInterval(opsTimer);opsTimer=on?setInterval(tickOps,3000):null;$("ops-toggle").setAttribute("aria-pressed",on);$("ops-toggle").textContent=on?"Live-Simulation pausieren":"Live-Simulation starten"}
+$("ops-toggle").onclick=()=>setOps(!opsTimer);
+renderOps(); setOps(!reduce);
+
+/* ---------- Kolonnenparken ---------- */
+const K={rows:[],queue:[],placed:0,fallback:0,last:null};
+const ROWS=[["T1","04:00","05:00"],["T2","05:00","06:00"],["T3","06:00","07:00"],["T4","07:00","08:00"]];
+const toMin=s=>{const[h,m]=s.split(":").map(Number);return h*60+m};
+const fmt=m=>`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+function kReset(){
+ K.rows=ROWS.map(([id,a,b])=>({id,a:toMin(a),b:toMin(b),slots:[]}));
+ [[0,[245,250,262]],[1,[305,318]],[2,[365]],[3,[]]].forEach(([i,ts])=>K.rows[i].slots=ts.slice());
+ K.queue=[296,252,371,442,310,268,401,455,333,284,377,420,299,350,430];
+ K.placed=0;K.fallback=0;K.last=null;
+ $("k-msg").textContent="Klicke auf „Nächster Lkw kommt an“. Jeder Lkw nennt bei der Einfahrt seine geplante Abfahrt (aus App oder Terminal).";
+ renderK();
+}
+function kNext(){
+ if(!K.queue.length){$("k-msg").textContent="Alle Beispiel-Lkw sind zugewiesen. Mit „Zurücksetzen“ von vorn.";return}
+ const t=K.queue.shift(), plate=plates[(K.placed+K.fallback)%plates.length];
+ const cands=K.rows.filter(r=>t>=r.a&&t<r.b&&r.slots.length<8&&(r.slots.length===0||r.slots[r.slots.length-1]<=t));
+ if(!cands.length){K.fallback++;K.last=null;$("k-msg").textContent=`${plate}, Abfahrt ${fmt(t)}: keine passende Reihe frei → Ausweichplatz (konventionell). Kein Lkw wird zugeparkt.`;renderK();return}
+ cands.sort((x,y)=>(t-(x.slots.at(-1)??x.a))-(t-(y.slots.at(-1)??y.a)));
+ const r=cands[0]; r.slots.push(t); K.placed++; K.last=[r.id,r.slots.length-1];
+ $("k-msg").textContent=`${plate}, Abfahrt ${fmt(t)} → Reihe ${r.id}, Platz ${r.slots.length}. Anzeige an der Reihe und Push in der App.`;
+ renderK();
+}
+function renderK(){
+ $("k-rows").innerHTML=K.rows.map(r=>`<div class="krow"><div class="lab">${r.id}<small>${fmt(r.a)}–${fmt(r.b)}</small></div><div><div class="slots">${Array.from({length:8},(_,i)=>{const v=r.slots[i];const isNew=K.last&&K.last[0]===r.id&&K.last[1]===i;return `<div class="slot${v!=null?(isNew?" new":" full"):""}">${v!=null?fmt(v):""}</div>`}).join("")}</div><div class="exitarrow">← Ausfahrt der Reihe (vorne fährt zuerst)</div></div></div>`).join("");
+ const used=K.rows.reduce((a,r)=>a+r.slots.length,0);
+ $("k-kpi").innerHTML=`<dt>Belegt (Kolonne)</dt><dd>${used} von 32</dd><dt>Neu zugewiesen</dt><dd>${K.placed}</dd><dt>Ausweichplätze</dt><dd>${K.fallback}</dd><dt>Zugeparkt</dt><dd>0 (durch Regel ausgeschlossen)</dd><dt>Kapazität</dt><dd>bis zu +50 % ggü. konventionell (Impuls, Folie 12)</dd>`;
+}
+$("k-next").onclick=kNext; $("k-reset").onclick=kReset; kReset();
+</script>
